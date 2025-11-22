@@ -1,0 +1,192 @@
+[
+    {
+        "name": "KMID",
+        "expression": "($close - $open) / $open",
+        "type": "origin"
+    },
+    {
+        "name": "KLEN",
+        "expression": "($high - $low) / $open",
+        "type": "origin"
+    },
+    {
+        "name": "KMID2",
+        "expression": "($close - $open) / ($high - $low + 1e-12)",
+        "type": "origin"
+    },
+    {
+        "name": "KUP",
+        "expression": "($high - Greater($open, $close)) / $open",
+        "type": "origin"
+    },
+    {
+        "name": "KUP2",
+        "expression": "($high - Greater($open, $close)) / ($high - $low + 1e-12)",
+        "type": "origin"
+    },
+    {
+        "name": "KLOW",
+        "expression": "(Less($open, $close) - $low) / $open",
+        "type": "origin"
+    },
+    {
+        "name": "KLOW2",
+        "expression": "(Less($open, $close) - $low) / ($high - $low + 1e-12)",
+        "type": "origin"
+    },
+    {
+        "name": "KSFT",
+        "expression": "(2 * $close - $high - $low) / $open",
+        "type": "origin"
+    },
+    {
+        "name": "KSFT2",
+        "expression": "(2 * $close - $high - $low) / ($high - $low + 1e-12)",
+        "type": "origin"
+    },
+    {
+        "name": "ROC",
+        "expression": "Ref($close, 5) / $close",
+        "type": "origin"
+    },
+    {
+        "name": "MA",
+        "expression": "Mean($close, 5) / $close",
+        "type": "origin"
+    },
+    {
+        "name": "STD",
+        "expression": "Std($close, 5) / $close",
+        "type": "origin"
+    },
+    {
+        "name": "BETA",
+        "expression": "Slope($close, 5) / $close",
+        "type": "origin"
+    },
+    {
+        "name": "RSQR",
+        "expression": "Rsquare($close, 5)",
+        "type": "origin"
+    },
+    {
+        "name": "RESI",
+        "expression": "Resi($close, 5) / $close",
+        "type": "origin"
+    },
+    {
+        "name": "MAX",
+        "expression": "Max($high, 5) / $close",
+        "type": "origin"
+    },
+    {
+        "name": "LOW",
+        "expression": "Min($low, 5) / $close",
+        "type": "origin"
+    },
+    {
+        "name": "QTLU",
+        "expression": "Quantile($close, 5, 0.8) / $close",
+        "type": "origin"
+    },
+    {
+        "name": "QTLD",
+        "expression": "Quantile($close, 5, 0.2) / $close",
+        "type": "origin"
+    },
+    {
+        "name": "RANK_CLOSE",
+        "expression": "Rank($close, 5)",
+        "type": "origin"
+    },
+    {
+        "name": "RSV",
+        "expression": "($close - Min($low, 5)) / (Max($high, 5) - Min($low, 5) + 1e-12)",
+        "type": "origin"
+    },
+    {
+        "name": "IMAX",
+        "expression": "IdxMax($high, 5) / 5",
+        "type": "origin"
+    },
+    {
+        "name": "IMIN",
+        "expression": "IdxMin($low, 5) / 5",
+        "type": "origin"
+    },
+    {
+        "name": "IMXD",
+        "expression": "(IdxMax($high, 5) - IdxMin($low, 5)) / 5",
+        "type": "origin"
+    },
+    {
+        "name": "CORR",
+        "expression": "Corr($close, Log($volume+1), 5)",
+        "type": "origin"
+    },
+    {
+        "name": "CORD",
+        "expression": "Corr($close/Ref($close,1), Log($volume/Ref($volume,1)+1), 5)",
+        "type": "origin"
+    },
+    {
+        "name": "CNTP",
+        "expression": "Mean($close>Ref($close,1), 5)",
+        "type": "origin"
+    },
+    {
+        "name": "CNTN",
+        "expression": "Mean($close<Ref($close,1), 5)",
+        "type": "origin"
+    },
+    {
+        "name": "CNTD",
+        "expression": "Mean($close>Ref($close,1), 5)-Mean($close<Ref($close,1), 5)",
+        "type": "origin"
+    },
+    {
+        "name": "SUMP",
+        "expression": "Sum(Greater($close-Ref($close,1),0), 5)/(Sum(Abs($close-Ref($close,1)), 5)+1e-12)",
+        "type": "origin"
+    },
+    {
+        "name": "SUMN",
+        "expression": "Sum(Greater(Ref($close,1)-$close,0), 5)/(Sum(Abs($close-Ref($close,1)), 5)+1e-12)",
+        "type": "origin"
+    },
+    {
+        "name": "SUMD",
+        "expression": "(Sum(Greater($close-Ref($close,1),0), 5)-Sum(Greater(Ref($close,1)-$close,0), 5))/(Sum(Abs($close-Ref($close,1)), 5)+1e-12)",
+        "type": "origin"
+    },
+    {
+        "name": "VMA",
+        "expression": "Mean($volume, 5)/($volume+1e-12)",
+        "type": "origin"
+    },
+    {
+        "name": "VSTD",
+        "expression": "Std($volume, 5)/($volume+1e-12)",
+        "type": "origin"
+    },
+    {
+        "name": "WVMA",
+        "expression": "Std(Abs($close/Ref($close,1)-1)*$volume, 5)/(Mean(Abs($close/Ref($close,1)-1)*$volume, 5)+1e-12)",
+        "type": "origin"
+    },
+    {
+        "name": "VSUMP",
+        "expression": "Sum(Greater($volume-Ref($volume,1),0), 5)/(Sum(Abs($volume-Ref($volume,1)), 5)+1e-12)",
+        "type": "origin"
+    },
+    {
+        "name": "VSUMN",
+        "expression": "Sum(Greater(Ref($volume,1)-$volume,0), 5)/(Sum(Abs($volume-Ref($volume,1)), 5)+1e-12)",
+        "type": "origin"
+    },
+    {
+        "name": "VSUMD",
+        "expression": "(Sum(Greater($volume-Ref($volume,1),0), 5)-Sum(Greater(Ref($volume,1)-$volume,0), 5))/(Sum(Abs($volume-Ref($volume,1)), 5)+1e-12)",
+        "type": "origin"
+    }
+]

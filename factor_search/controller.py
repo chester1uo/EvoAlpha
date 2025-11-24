@@ -1,12 +1,16 @@
 import random
 import time
+import inspect
+from collections import defaultdict
 from typing import Any, Callable, Dict, List
+
 from tqdm import tqdm
-from factor_search.audit_log import get_audit_logger
+from factor_search.audit_log import get_audit_logger  # optional; used for round summaries
 
 from .config import BacktestConfig, ControllerConfig, MetricThresholds, SearchTask
 from .db import FactorRepository
 from .personas import random_persona
+from .run_logger import RunLogger                         # <--- NEW
 from .searcher_agent import SearcherAgent
 from .schemas import FactorCandidate, SearcherReport
 from .utils import dedup_by_expression, rank_by_ic, select_seed_pool
@@ -25,7 +29,7 @@ class Controller:
         repo = FactorRepository(uri=...)
         seeds = repo.get_seeds(limit=60, include_search=False)
         controller = Controller(repo=repo, seeds=seeds, quality_check_fn=..., evaluate_fn=...)
-        summary = controller.run(task, ctrl_cfg, backtest_cfg, thresholds)
+        summary = controller.run(task, ctrl_cfg, backtest_cfg, thresholds, save_dir="./runs/exp_001")
     """
 
     def __init__(
@@ -113,15 +117,30 @@ class Controller:
         ctrl_cfg: ControllerConfig,
         backtest_cfg: BacktestConfig,
         thresholds: MetricThresholds,
+        save_dir: str = "./runs/ea_search",     # <--- NEW: where to write raw/record logs
     ) -> Dict[str, Any]:
         """
         Run multi-round factor search and validation.
+
+        Side effects (per round r):
+          - Raw LLM calls (if SearcherAgent supports `run_logger`):
+              {save_dir}/raw/round_{r}/searcher_{agent_id}.json
+          - Factor records with metrics + accepted flag:
+              {save_dir}/record/round_{r}/searcher_{agent_id}.json
+          - Accepted factors are upserted to MongoDB.
         """
+        run_logger = RunLogger(save_dir=save_dir)
+        audit = get_audit_logger()  # optional audit stream
+
         searchers = self._spawn_searchers(ctrl_cfg)
         round_summaries: List[Dict[str, Any]] = []
         all_searcher_reports: List[SearcherReport] = []
         accepted_overall: List[Dict[str, Any]] = []
         rejected_overall: List[Dict[str, Any]] = []
+
+        # Introspect whether SearcherAgent.search supports run_logger (backward compatible)
+        search_params = set(inspect.signature(SearcherAgent.search).parameters.keys())
+        supports_run_logger = "run_logger" in search_params
 
         for round_id in tqdm(range(1, ctrl_cfg.rounds + 1), desc="EA Search Rounds"):
             t_round_start = time.time()
@@ -160,19 +179,37 @@ class Controller:
                     "mode": agent.mode,
                 }
 
-                cands, report = agent.search(
-                    user_request=task.user_request,
-                    seeds=seeds,
-                    required_components=task.required_components,
-                    avoided_operators=task.avoided_operators,
-                    market=task.target_market,
-                    universe=task.universe,
-                    style=task.style,
-                    horizon=task.horizon,
-                    n_factors=quota,
-                    round_id=round_id,
-                    context=context,
-                )
+                # Call searcher; pass run_logger only if supported
+                if supports_run_logger:
+                    cands, report = agent.search(
+                        user_request=task.user_request,
+                        seeds=seeds,
+                        required_components=task.required_components,
+                        avoided_operators=task.avoided_operators,
+                        market=task.target_market,
+                        universe=task.universe,
+                        style=task.style,
+                        horizon=task.horizon,
+                        n_factors=quota,
+                        round_id=round_id,
+                        context=context,
+                        run_logger=run_logger,   # raw LLM logs will be written by the agent
+                    )
+                else:
+                    cands, report = agent.search(
+                        user_request=task.user_request,
+                        seeds=seeds,
+                        required_components=task.required_components,
+                        avoided_operators=task.avoided_operators,
+                        market=task.target_market,
+                        universe=task.universe,
+                        style=task.style,
+                        horizon=task.horizon,
+                        n_factors=quota,
+                        round_id=round_id,
+                        context=context,
+                    )
+
                 round_candidates.extend(cands)
                 round_reports.append(report)
 
@@ -199,6 +236,21 @@ class Controller:
                 k = max(1, min(ctrl_cfg.seed_pool_size, len(self.pool)))
                 self.pool = self.pool[:k]
 
+            # --------- NEW: write per-round per-searcher factor records --------- #
+            # Group validated candidates by agent_id from provenance.
+            per_agent_records: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+            for rec in validation.per_candidate:
+                prov = rec.get("provenance", {}) or {}
+                agent_id = prov.get("agent_id", "unknown")
+                per_agent_records[agent_id].append(rec)
+
+            # Save factor records with metrics + accepted flag
+            run_logger.log_factor_round(
+                round_id=round_id,
+                per_agent_records=per_agent_records,
+            )
+            # -------------------------------------------------------------------- #
+
             t_round = time.time() - t_round_start
             best_ic = self.pool[0]["metrics"].get("ic", 0.0) if self.pool else 0.0
 
@@ -211,6 +263,12 @@ class Controller:
                 "elapsed_sec": t_round,
             }
             round_summaries.append(round_summary)
+
+            # Optional audit stream
+            audit.log_event(
+                "round_summary",
+                {**round_summary, "save_dir": save_dir},
+            )
 
             print(
                 f"[Controller] Round {round_id}/{ctrl_cfg.rounds}: "

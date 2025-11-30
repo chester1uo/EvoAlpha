@@ -208,3 +208,47 @@ Self-check BEFORE you answer:
 - None of the expressions is identical to a seed expression.
 - The JSON is valid and contains no comments or extra text.
 """
+
+def build_persona_generator_prompt(
+    *,
+    user_request: str = "",
+    existing_personas: List[Dict[str, str]] = None,
+    num_to_generate: int = 5,
+    enable_reason: bool = True,
+) -> str:
+    """
+    Generates a structured JSON prompt to guide an LLM in creating new financial personas.
+
+    Args:
+        existing_personas (List[Dict[str, str]]): List of existing personas for context and de-duplication.
+        num_to_generate (int): The number of new personas to request.
+
+    Returns:
+        str: A JSON string containing the structured prompt instructions.
+    """
+    
+    prompt = f"""
+## 🎯 Task: Generate Financial Persona Library
+
+You are an expert in Quantitative Finance and Strategy Design. Your task is to generate **{num_to_generate} new and unique Financial Personas** based on advanced quantitative concepts and specific trading philosophies.
+
+Each persona must have a memorable, professional English name and a detailed, concise description of their core strategy focus and technical preferences.
+
+### ⚙️ Output Format Requirement
+
+Output strictly as a valid JSON array (and nothing else) of length {num_to_generate}.
+Each item must look like:
+{{
+    "name": "<short unique persona name>",
+    "description": "<A concise and professional description of the core strategy, technical focus, and preferred structures.>",
+}}
+
+Self-check BEFORE you answer:
+- The JSON is valid and contains no comments or extra text.
+"""
+    return prompt
+
+if __name__ == "__main__":
+    # python -m factor_search.prompts
+    prompt = build_persona_generator_prompt()
+    print(f"prompt from build_persona_generator_prompt {prompt}")

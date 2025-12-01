@@ -208,3 +208,100 @@ Self-check BEFORE you answer:
 - None of the expressions is identical to a seed expression.
 - The JSON is valid and contains no comments or extra text.
 """
+
+def build_persona_generator_prompt(
+    *,
+    user_request: str = "",
+    existing_personas: List[Dict[str, str]] = None,
+    num_to_generate: int = 5,
+    enable_reason: bool = True,
+) -> str:
+    """
+    Generates a structured JSON prompt to guide an LLM in creating new financial personas.
+
+    Args:
+        existing_personas (List[Dict[str, str]]): List of existing personas for context and de-duplication.
+        num_to_generate (int): The number of new personas to request.
+
+    Returns:
+        str: A JSON string containing the structured prompt instructions.
+    """
+    
+    prompt = f"""
+## 🎯 Task: Generate Financial Persona Library
+
+You are an expert in Quantitative Finance and Strategy Design. Your task is to generate **{num_to_generate} new and unique Financial Personas** based on advanced quantitative concepts and specific trading philosophies.
+
+Each persona must have a memorable, professional English name and a detailed, concise description of their core strategy focus and technical preferences.
+
+### ⚙️ Output Format Requirement
+
+Output strictly as a valid JSON array (and nothing else) of length {num_to_generate}.
+Each item must look like:
+{{
+    "name": "<short unique persona name>",
+    "description": "<A concise and professional description of the core strategy, technical focus, and preferred structures.>",
+}}
+
+Self-check BEFORE you answer:
+- The JSON is valid and contains no comments or extra text.
+"""
+    return prompt
+
+
+def build_persona_tuner_prompt(
+    *,
+    old_persona: Dict[str, str],
+    performance_stats: Dict[str, float],
+    num_to_generate: int = 3,
+    enable_reason: bool = True,
+) -> str:
+    """
+    Create a prompt instructing the LLM to produce tuned variants of an existing persona
+    given short performance statistics. The output must be a JSON array of new personas.
+
+    Args:
+        old_persona: dict with keys 'name' and 'description' describing the existing persona.
+        performance_stats: dictionary of measured stats (e.g., {'ic':0.045, 'stability':0.1}).
+        num_to_generate: how many tuned personas to produce.
+
+    Returns:
+        A prompt string for the LLM.
+    """
+
+    stats_block = ", ".join([f"{k}: {v}" for k, v in (performance_stats or {}).items()])
+    old_name = old_persona.get("name", "(unnamed)") if old_persona else "(unnamed)"
+    old_desc = old_persona.get("description", "") if old_persona else ""
+
+    reason_field = '"reason": "<1-2 sentences on how tuning addresses the perf issues>"' if enable_reason else ""
+
+    return f"""
+## 🎯 Task: Tune an existing Financial Persona
+
+You are an expert quantitative researcher. Given the existing persona below and its measured performance
+statistics, produce exactly {num_to_generate} tuned persona variants that keep the core style but
+improve on the weak points indicated by the performance metrics.
+
+Existing persona:
+Name: {old_name}
+Description: {old_desc}
+
+Performance statistics (summary): {stats_block}
+
+You should return a JSON array (and nothing else) of length {num_to_generate}. Each item must look like:
+{{
+  "name": "<short unique persona name>",
+  "description": "<A concise description that shows how this tuned persona adjusts the original style to address the performance stats>",{',' if enable_reason else ''}
+  {reason_field}
+}}
+
+Self-check BEFORE you answer:
+- Keep the tuned persona clearly related to the original but meaningfully adjusted.
+- Where performance stats suggest problems (low IC, high instability, short decay), describe targeted fixes (e.g., longer windows, stronger normalization, add volume filters, simpler expressions).
+- The JSON must be valid and contain no comments or extra text.
+"""
+
+if __name__ == "__main__":
+    # python -m factor_search.prompts
+    prompt = build_persona_generator_prompt()
+    print(f"prompt from build_persona_generator_prompt {prompt}")

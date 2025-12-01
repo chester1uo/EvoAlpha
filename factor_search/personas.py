@@ -1,12 +1,12 @@
 import random
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Dict, Any
 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from .prompts import build_persona_generator_prompt
+from .prompts import build_persona_generator_prompt, build_persona_tuner_prompt
 
 # @dataclass
 class Persona(BaseModel):
@@ -155,9 +155,9 @@ def generate_new_personas(
     prompt = build_persona_generator_prompt(num_to_generate=n)
     
     llm = ChatOpenAI(
-            model=model,
-            temperature=temperature,
-            base_url="https://api.openai-proxy.com/v1",
+        model=model,
+        temperature=temperature,
+        base_url="https://api.openai-proxy.com/v1",
     )
     structured_llm = llm.with_structured_output(
         PersonaLibrary,
@@ -177,7 +177,62 @@ def generate_new_personas(
 def random_persona() -> Persona:
     return random.choice(PERSONA_LIBRARY)
 
+
+def tune_persona(
+    old_persona: Persona,
+    performance_stats: Dict[str, float],
+    model: str = "gpt-4.1-mini",
+    temperature: float = 1.0,
+    n: int = 3,
+) -> Any:
+    """
+    Produce tuned persona variants from an existing persona and performance statistics.
+
+    Args:
+        old_persona: the persona to tune (a Persona instance)
+        performance_stats: dictionary of measured performance values (e.g., {'ic': 0.045, 'stability': 0.10})
+        model: LLM model name
+        temperature: sampling temperature for the LLM
+        n: number of tuned personas to generate
+
+    Returns:
+        Parsed structured output representing the new personas (typically a PersonaLibrary instance or dict).
+
+    Note: This function calls the project's configured LLM via langchain_openai; in tests you may want to monkeypatch
+    ChatOpenAI to avoid network calls.
+    """
+
+    prompt = build_persona_tuner_prompt(
+        old_persona=old_persona.model_dump() if hasattr(old_persona, "model_dump") else old_persona.dict(),
+        performance_stats=performance_stats,
+        num_to_generate=n,
+    )
+
+    llm = ChatOpenAI(
+        model=model,
+        temperature=temperature,
+        base_url="https://api.openai-proxy.com/v1",
+    )
+
+    structured_llm = llm.with_structured_output(
+        PersonaLibrary,
+        method="json_schema",
+        strict=True,
+    )
+
+    messages = [
+        SystemMessage(content=prompt),
+    ]
+
+    response = structured_llm.invoke(messages)
+
+    return response
+
 if __name__ == "__main__":
     # python -m factor_search.personas
-    res = generate_new_personas()
-    print(f"res of generate_new_personas {res}")
+    # PERSONA_LIBRARY=[Persona(name='MeanReverter', description='Focuses on identifying and trading asset price deviations from their historical mean using statistical band models, typically operating on intraday and daily timeframes, with heavy reliance on Ornstein-Uhlenbeck process modeling and cointegration techniques.'), Persona(name='VolatilityArbitrageur', description='Capitalizes on discrepancies in implied versus realized volatility by employing options spread strategies and GARCH volatility forecasting models, favoring mid-term horizons and leveraging advanced volatility surfaces and Greeks for risk management.'), Persona(name='MomentumNavigator', description='Exploits persistent price trends across multiple asset classes using adaptive moving average filters and trend-strength indicators like the Average Directional Index, preferring weekly to monthly holding periods with dynamic position sizing based on volatility-adjusted weights.'), Persona(name='FactorAllocator', description='Implements multi-factor equity style investing by quantitatively weighting exposure to value, quality, momentum, and low-volatility factors, utilizing robust cross-sectional regression analyses and portfolio optimization frameworks over medium to long investment horizons.'), Persona(name='HighFrequencyStatArb', description='Engages in ultra-short-term statistical arbitrage by modeling microstructural price dynamics and execution latency, deploying machine learning classifiers for signal generation with sub-second position turnovers and stringent risk controls on order flow imbalance and price impact.')
+    # res = generate_new_personas()
+    # print(f"res of generate_new_personas {res}")
+    
+    res = tune_persona(PERSONA_LIBRARY[0], {"ic": 0.045, "stability": 0.10}, n=3)
+    print(f"res of tune_persona {res}")

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from pymongo import MongoClient, DESCENDING
 
@@ -150,3 +150,80 @@ class FactorRepository:
                 {"$set": doc},
                 upsert=True,
             )
+
+
+@dataclass
+class PersonaRepository:
+    """
+    Simple Mongo-backed repository for Persona objects.
+
+    Stored document schema:
+
+    {
+        "name": <str>,
+        "description": <str>,
+        "meta": {...},
+        "created_at": <datetime>,
+        "updated_at": <datetime>
+    }
+    """
+
+    uri: str
+    db_name: str = "factor_search"
+    collection_name: str = "personas"
+
+    def __post_init__(self) -> None:
+        self.client = MongoClient(self.uri)
+        self.db = self.client[self.db_name]
+        self.col = self.db[self.collection_name]
+        self.ensure_indexes()
+
+    def ensure_indexes(self) -> None:
+        """Ensure a unique index on `name`."""
+        self.col.create_index("name", unique=True)
+
+    def insert_personas(self, personas: List[Dict[str, Any]]) -> int:
+        """Insert or upsert a list of personas. Returns number inserted."""
+        now = datetime.utcnow()
+        inserted = 0
+        for p in personas:
+            name = p["name"]
+            doc = {
+                "name": name,
+                "description": p.get("description", ""),
+                "meta": p.get("meta", {}),
+                "created_at": now,
+                "updated_at": now,
+            }
+            res = self.col.update_one({"name": name}, {"$setOnInsert": doc}, upsert=True)
+            if getattr(res, "upserted_id", None) is not None:
+                inserted += 1
+        return inserted
+
+    def list_personas(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Return personas sorted by name."""
+        cursor = self.col.find({}, {"_id": False}).sort([("name", 1)]).limit(limit)
+        return list(cursor)
+
+    def get_persona(self, name: str) -> Optional[Dict[str, Any]]:
+        """Get a persona by name (returns None if missing)."""
+        doc = self.col.find_one({"name": name}, {"_id": False})
+        return doc
+
+    def upsert_persona(self, persona: Dict[str, Any]) -> None:
+        """Create or replace a persona document."""
+        now = datetime.utcnow()
+        name = persona["name"]
+        doc = {
+            "name": name,
+            "description": persona.get("description", ""),
+            "meta": persona.get("meta", {}),
+            "created_at": now,
+            "updated_at": now,
+        }
+        self.col.update_one({"name": name}, {"$set": doc}, upsert=True)
+
+    def delete_persona(self, name: str) -> bool:
+        """Delete a persona by name. Returns True if deleted."""
+        res = self.col.delete_one({"name": name})
+        return getattr(res, "deleted_count", 0) > 0

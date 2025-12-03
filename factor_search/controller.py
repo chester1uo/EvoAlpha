@@ -146,6 +146,7 @@ class Controller:
             t_round_start = time.time()
 
             if round_id > 1:
+                # TODO: personas update, use report feedback
                 self._maybe_refresh_personas(searchers, ctrl_cfg.persona_refresh_prob)
 
             # Select seeds for this round
@@ -218,6 +219,7 @@ class Controller:
             # Deduplicate and validate
             unique_candidates = self._dedup_candidates(round_candidates)
 
+            # TODO: give the feedback to persona generate
             validation: ValidationResult = self.validator.validate(
                 candidates=unique_candidates, thresholds=thresholds
             )

@@ -14,6 +14,7 @@ class ValidationResult:
     # New: JSON-friendly stream for logging per candidate with accepted flag.
     # Each item has: {name, expression, type, meta, reason, tags, provenance, metrics, accepted}
     per_candidate: List[Dict[str, Any]]
+    # TODO: value metrics, ic...
 
 
 class Validator:

@@ -1,3 +1,3 @@
-from .mongo import FactorRepository
+from .mongo import FactorRepository, PersonaRepository
 
-__all__ = ["FactorRepository"]
+__all__ = ["FactorRepository", "PersonaRepository"]

@@ -40,6 +40,7 @@ class SearcherReport:
     """
     Diagnostics for a single SearcherAgent.
     """
+    # TODO: add factor metric, like ic
     agent_id: str
     character: str
     mode: str                     # "mutation" or "crossover"
